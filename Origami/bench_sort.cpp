@@ -18,7 +18,7 @@
  --------------------------------------------------------------------------------------------*/
 
 #include "commons.h"
-#include "Writer.h"
+#include "writer.h"
 #include "utils.h"
 #include "merge_utils.h"
 #include "sorter.h"
@@ -62,7 +62,7 @@ void sort_bench(ui writer_type, int argc, char** argv) {
 	memset(output, 0, size);
 
 	if (repeat > 1) {
-		data_back = (Item*)VirtualAlloc(NULL, size, MEM_COMMIT, PAGE_READWRITE);
+		data_back = (Item*)linux_valloc(size);
 		memcpy(data_back, data, size);
 	}
 #ifdef STD_CORRECTNESS
@@ -138,7 +138,7 @@ void sort_bench(ui writer_type, int argc, char** argv) {
 	if (min_k > 2) VFREE(kway_buf);
 
 #ifdef STD_CORRECTNESS
-	VirtualFree(sorted, 0, MEM_RELEASE);
+	VFREE(sorted);
 #endif 
 #undef STD_CORRECTNESS
 }
@@ -147,7 +147,9 @@ int main(int argc, char** argv) {
 
 	// single thread sort test
 	sort_bench<Regtype, Itemtype>(MT, argc, argv);
+#ifdef _WIN32
 	system("pause");
+#endif
 
 	return 0;
 }

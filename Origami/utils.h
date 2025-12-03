@@ -29,7 +29,7 @@ void print_size() {
 template <typename Item>
 void sort_every(Item* data, uint64_t nItems, uint64_t sorted_per) {
 #pragma omp parallel for
-	for(__int64 i = 0; i < nItems; i += sorted_per) {
+	for(int64_t i = 0; i < nItems; i += sorted_per) {
 		Item* data2 = data + i;
 		std::sort(data2, data2 + sorted_per);
 	}

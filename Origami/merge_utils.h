@@ -241,7 +241,7 @@ namespace origami_utils {
 
 			// generate frequency from the Pareto distribution with alpha=1; otherwise, the generator gets slow
 			double u = (double)y / ((double)(1LLU << 63) * 2);			// uniform [0,1]
-			ui64 f = min(ceil(beta * (1 / (1 - u) - 1)), 100000);		// rounded-up Pareto
+			ui64 f = std::min((ui64)ceil(beta * (1 / (1 - u) - 1)), (ui64)100000);		// rounded-up Pareto
 			A[i++] = f;
 		}
 	}

@@ -23,7 +23,7 @@
 #include "merge_utils.h"
 #include "merge_tree.h"
 #include "merger.h"
-#include "partition.h"
+#include "Partition.h"
 #include <fstream>
 
 
@@ -3855,7 +3855,7 @@ namespace origami_sorter {
 		Item* dst = tmp_buf;
 
 		constexpr ui64 Y = P2_N;
-		ui64 Y_sort = min(Y, sort_n);
+		ui64 Y_sort = std::min(Y, sort_n);
 
 		// Phase 1-2
 		Item* p = src, * p_dst = dst;
@@ -4195,7 +4195,7 @@ namespace origami_sorter {
 	Item* sort_multi_thread(Item* d, Item* out, ui64 n_items, ui n_threads, ui n_cores, ui min_k, Item* kway_buf, Item* d_back = nullptr) {
 		ui n_partitions = n_threads * 16;
 		std::thread** threads = new std::thread * [n_threads];
-		_M = max(min_k, n_threads);									// merge in phase 4
+		_M = std::max(min_k, n_threads);									// merge in phase 4
 
 		constexpr ui64 Y = P2_N;
 		ui Y_pow = (ui)(log2(Y));

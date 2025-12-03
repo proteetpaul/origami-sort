@@ -19,7 +19,7 @@
 
 #include "commons.h"
 #include "utils.h"
-#include "partition.h"
+#include "Partition.h"
 #include "writer.h"
 #include "merger.h"
 #include "merge_tree.h"
@@ -44,7 +44,7 @@ void mtree_single_thread(ui writer_type = 1, ui K = 2, ui l1_buff_n = 32, ui l2_
 	// how many keys to take in the merge kernel from each stream
 	// default key is ui if element does not fit in register
 	constexpr ui keys_per_stream = sizeof(Item) > sizeof(Reg) ? (sizeof(Reg) / sizeof(ui) * NREG) : (sizeof(Reg) / sizeof(Item) * NREG);		// keys per stream in merge
-	UINT64 chunk = tot_n / K; chunk = (chunk / keys_per_stream) * keys_per_stream; tot_n = chunk * K;
+	ui64 chunk = tot_n / K; chunk = (chunk / keys_per_stream) * keys_per_stream; tot_n = chunk * K;
 	const ui K_pow = (ui)(log2(K));
 	interimBuf = (Item*)(VALLOC(interim_buff_size));
 	memset(interimBuf, 0, interim_buff_size);
@@ -115,13 +115,13 @@ void StatsThread(HANDLE event_exit, __int64* total_blocks, ui64 block_n) {
 	__int64 prev_block_count = 0;
 	ui curr_iter = 0;
 	ui target_iters = 10;		// let it run for 40s
-	DWORD timeout_ms = 4000;
+	uint32_t timeout_ms = 4000;
 	CRITICAL_SECTION cs;
 	InitializeCriticalSection(&cs);
 	printf("Stats thread starting ... \n");
 	hrc::time_point st = hrc::now();	// stat thread start time
 	while (true) {
-		DWORD ret = WaitForSingleObject(event_exit, timeout_ms); // time-out every 4 secs
+		uint32_t ret = WaitForSingleObject(event_exit, timeout_ms); // time-out every 4 secs
 		if (ret == WAIT_OBJECT_0) {
 			// event_exit was set
 			break;
@@ -143,7 +143,7 @@ void StatsThread(HANDLE event_exit, __int64* total_blocks, ui64 block_n) {
 			}
 		}
 		else {
-			printf("Returned something else, Error %lu\n", GetLastError());
+			printf("Returned something else, Error %u\n", ret);
 		}
 	}
 	printf("Stats thread exiting ... \n");
@@ -181,7 +181,7 @@ void mtree_multi_thread(ui n_threads, ui n_cores, int choice = 0, ui writer_type
 	HANDLE event_exit = NULL;
 	event_exit = CreateEvent(NULL, true, false, NULL);				// manual reset, initial false
 	if (!event_exit) {
-		printf("Exit event creation failed with error: %lu\n", GetLastError());
+		printf("Exit event creation failed\n");
 		exit(1);
 	}
 	stat_thread = new std::thread(StatsThread, event_exit, &kway_merges_done, n_per_thread);
@@ -195,7 +195,7 @@ void mtree_multi_thread(ui n_threads, ui n_cores, int choice = 0, ui writer_type
 	// default key is ui if element does not fit in register
 	constexpr ui keys_per_stream = sizeof(Item) > sizeof(Reg) ? (sizeof(Reg) / sizeof(ui) * NREG) : (sizeof(Reg) / sizeof(Item) * NREG);		// keys per stream in merge
 
-	UINT64 chunk = n_per_thread / K; chunk = (chunk / keys_per_stream) * keys_per_stream; n_per_thread = chunk * K;
+	ui64 chunk = n_per_thread / K; chunk = (chunk / keys_per_stream) * keys_per_stream; n_per_thread = chunk * K;
 	const ui K_pow = (ui)(log2(K));
 	interimBuf = (Item*)(VALLOC(interim_buff_size));
 	memset(interimBuf, 0, interim_buff_size);
@@ -327,6 +327,8 @@ int main(int argc, char** argv)
 	//mtree_single_thread_test(argc, argv);
 	
 	mtree_multi_thread_test(argc, argv);
+#ifdef _WIN32
 	system("pause");
+#endif
 	return 0;
 }

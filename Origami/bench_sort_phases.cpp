@@ -40,7 +40,8 @@ public:
 		constexpr ui64 iter = 1e9;
 		Item* d = new Item[n];
 		Reg* d2 = (Reg*)d;
-		datagen::random_writer<Item>(d, n);
+		datagen::Writer<Item> writer;
+		writer.random_writer(d, n);
 
 		printf("Sorting in-register: reg %u, unroll %u ... ", NREG, UNROLL);
 
@@ -184,7 +185,7 @@ public:
 		delete[] d;
 	}
 
-	template <int NREG = 8, typename Item, typename KeyType, typename ValueType>
+	template <int NREG = 8, typename KeyType, typename ValueType>
 	void in_register_sort_kv_scalar() {
 		constexpr ui KeySize = sizeof(KeyType);
 		constexpr ui ValueSize = sizeof(ValueType);
@@ -193,7 +194,8 @@ public:
 		constexpr ui64 n = NREG;
 		constexpr ui64 iter = 1e9;
 		Item* d = new Item[n];
-		datagen::random_writer<Item>(d, n);
+		datagen::Writer<Item> writer;
+		writer.random_writer(d, n);
 
 		printf("Sorting in-register: reg %u ... ", NREG);
 
@@ -245,7 +247,8 @@ public:
 		constexpr ui64 iter = 1e9;
 		Item* d = new Item[n];
 		Reg* d2 = (Reg*)d;
-		datagen::random_writer<Item>(d, n);
+		datagen::Writer<Item> writer;
+		writer.random_writer(d, n);
 
 		printf("Transposing in-register: reg %u, unroll %u, matrix: %u x %u ... ", nreg, UNROLL, nreg, nreg);
 
@@ -362,7 +365,8 @@ public:
 	void diag_exchange() {
 		constexpr ui n = (ItemsPerReg << 1) * UNROLL;
 		Item* d = new Item[n];
-		datagen::random_writer<Item>(d, n);
+		datagen::Writer<Item> writer;
+		writer.random_writer(d, n);
 		Reg* d2 = (Reg*)d;
 
 		hrc::time_point st, en;
@@ -437,7 +441,8 @@ public:
 		constexpr ui64 iter = 1e9;
 		Item* d = new Item[n];
 		Reg* d2 = (Reg*)d;
-		datagen::random_writer<Item>(d, n);
+		datagen::Writer<Item> writer;
+		writer.random_writer(d, n);
 		sort_every<Item>(d, n, per_n_half);
 
 		printf("Merging in-register: reg %u, unroll %u, merge: %u x %u ...", NREG, UNROLL, per_n_half, per_n_half);
@@ -1112,23 +1117,23 @@ void phase1_in_register_sort_test() {
 	if constexpr (std::is_same<Reg, Item>::value) {
 		InRegisterTest<Item, Reg> irt;
 		if constexpr (std::is_same<Item, KeyValue<i64, i64>>::value) {
-			irt.in_register_sort_kv_scalar<8, Item, i64, i64>();
+			irt.template in_register_sort_kv_scalar<8, i64, i64>();
 		}
 	}
 	// vector (keys, key-value) and scalar keys
 	else {
 		InRegisterTest<Item, Reg> irt;
-		irt.in_register_sort<4, 1>();
-		irt.in_register_sort<4, 2>();
-		irt.in_register_sort<4, 4>();
+		irt.template in_register_sort<4, 1>();
+		irt.template in_register_sort<4, 2>();
+		irt.template in_register_sort<4, 4>();
 
-		irt.in_register_sort<8, 1>();
-		irt.in_register_sort<8, 2>();
-		irt.in_register_sort<8, 4>();
+		irt.template in_register_sort<8, 1>();
+		irt.template in_register_sort<8, 2>();
+		irt.template in_register_sort<8, 4>();
 
-		irt.in_register_sort<16, 1>();
-		irt.in_register_sort<16, 2>();
-		irt.in_register_sort<16, 4>();
+		irt.template in_register_sort<16, 1>();
+		irt.template in_register_sort<16, 2>();
+		irt.template in_register_sort<16, 4>();
 
 	}
 }
@@ -1143,8 +1148,8 @@ void phase1_in_register_transpose_test() {
 	}
 	else {
 		InRegisterTest<Item, Reg> irt;
-		irt.in_register_transpose<1>();
-		irt.in_register_transpose<2>();
+		irt.template in_register_transpose<1>();
+		irt.template in_register_transpose<2>();
 	}
 }
 
@@ -1161,11 +1166,11 @@ void phase1_matrix_merge_test() {
 		InRegisterTest<Item, Reg> irt;
 		// col SWAP / mcmerge
 		//irt.mcmerge_test<16, 2>();				// 16 registers
-		irt.mcmerge_test<32, 1>();					// 32 x W matrix
+		irt.template mcmerge_test<32, 1>();					// 32 x W matrix
 
 		//  SWAP / mrmerge
 		//irt.mrmerge_test<16, 2>();
-		irt.mrmerge_test<32, 1>();
+		irt.template mrmerge_test<32, 1>();
 	}
 }
 
@@ -1175,9 +1180,9 @@ void phase1_sort_test() {
 	// scalar
 	if constexpr (std::is_same<Reg, Item>::value) {
 		InRegisterTest<Item, Reg> irt;
-		irt.phase1_sort_sliding_test<8, 8, 32>();
-		irt.phase1_sort_sliding_test<16, 16, 32>();
-		irt.phase1_sort_sliding_test<32, 32, 32>();
+		irt.template phase1_sort_sliding_test<8, 8, 32>();
+		irt.template phase1_sort_sliding_test<16, 16, 32>();
+		irt.template phase1_sort_sliding_test<32, 32, 32>();
 	}
 	// vectorized
 	else {
@@ -1185,32 +1190,32 @@ void phase1_sort_test() {
 		using Item1 = ui;
 		print_size<Reg, Item1>();
 		InRegisterTest<Item1, Reg> irt1;
-		irt1.phase1_sort_sliding_test<32, 8, min(8, _P1_SWITCH)>();
-		irt1.phase1_sort_sliding_test<32, 16, min(16, _P1_SWITCH)>();
-		irt1.phase1_sort_sliding_test<32, 32, min(32, _P1_SWITCH)>();
-		irt1.phase1_sort_sliding_test<32, 64, min(64, _P1_SWITCH)>();
-		irt1.phase1_sort_sliding_test<32, 128, min(128, _P1_SWITCH)>();
-		irt1.phase1_sort_sliding_test<64, 256, min(256, _P1_SWITCH)>();
-		irt1.phase1_sort_sliding_test<128, 512, min(512, _P1_SWITCH)>();
+		irt1.phase1_sort_sliding_test<32, 8, (8 < _P1_SWITCH ? 8 : _P1_SWITCH)>();
+		irt1.phase1_sort_sliding_test<32, 16, (16 < _P1_SWITCH ? 16 : _P1_SWITCH)>();
+		irt1.phase1_sort_sliding_test<32, 32, (32 < _P1_SWITCH ? 32 : _P1_SWITCH)>();
+		irt1.phase1_sort_sliding_test<32, 64, (64 < _P1_SWITCH ? 64 : _P1_SWITCH)>();
+		irt1.phase1_sort_sliding_test<32, 128, (128 < _P1_SWITCH ? 128 : _P1_SWITCH)>();
+		irt1.phase1_sort_sliding_test<64, 256, (256 < _P1_SWITCH ? 256 : _P1_SWITCH)>();
+		irt1.phase1_sort_sliding_test<128, 512, (512 < _P1_SWITCH ? 512 : _P1_SWITCH)>();
 
 		using Item2 = i64;
 		print_size<Reg, Item2>();
 		InRegisterTest<Item2, Reg> irt2;
-		irt2.phase1_sort_sliding_test<32, 8, min(8, _P1_SWITCH)>();
-		irt2.phase1_sort_sliding_test<32, 16, min(16, _P1_SWITCH)>();
-		irt2.phase1_sort_sliding_test<32, 32, min(32, _P1_SWITCH)>();
-		irt2.phase1_sort_sliding_test<32, 64, min(64, _P1_SWITCH)>();
-		irt2.phase1_sort_sliding_test<64, 128, min(128, _P1_SWITCH)>();
-		irt2.phase1_sort_sliding_test<128, 256, min(256, _P1_SWITCH)>();
+		irt2.phase1_sort_sliding_test<32, 8, (8 < _P1_SWITCH ? 8 : _P1_SWITCH)>();
+		irt2.phase1_sort_sliding_test<32, 16, (16 < _P1_SWITCH ? 16 : _P1_SWITCH)>();
+		irt2.phase1_sort_sliding_test<32, 32, (32 < _P1_SWITCH ? 32 : _P1_SWITCH)>();
+		irt2.phase1_sort_sliding_test<32, 64, (64 < _P1_SWITCH ? 64 : _P1_SWITCH)>();
+		irt2.phase1_sort_sliding_test<64, 128, (128 < _P1_SWITCH ? 128 : _P1_SWITCH)>();
+		irt2.phase1_sort_sliding_test<128, 256, (256 < _P1_SWITCH ? 256 : _P1_SWITCH)>();
 
 		using Item3 = KeyValue<i64, i64>;
 		print_size<Reg, Item3>();
 		InRegisterTest<Item3, Reg> irt3;
-		irt3.phase1_sort_sliding_test<32, 8, min(8, _P1_SWITCH)>();
-		irt3.phase1_sort_sliding_test<32, 16, min(16, _P1_SWITCH)>();
-		irt3.phase1_sort_sliding_test<32, 32, min(32, _P1_SWITCH)>();
-		irt3.phase1_sort_sliding_test<64, 64, min(64, _P1_SWITCH)>();
-		irt3.phase1_sort_sliding_test<128, 128, min(128, _P1_SWITCH)>();
+		irt3.phase1_sort_sliding_test<32, 8, (8 < _P1_SWITCH ? 8 : _P1_SWITCH)>();
+		irt3.phase1_sort_sliding_test<32, 16, (16 < _P1_SWITCH ? 16 : _P1_SWITCH)>();
+		irt3.phase1_sort_sliding_test<32, 32, (32 < _P1_SWITCH ? 32 : _P1_SWITCH)>();
+		irt3.phase1_sort_sliding_test<64, 64, (64 < _P1_SWITCH ? 64 : _P1_SWITCH)>();
+		irt3.phase1_sort_sliding_test<128, 128, (128 < _P1_SWITCH ? 128 : _P1_SWITCH)>();
 #endif
 
 #if REG_TYPE == 2
@@ -1219,32 +1224,32 @@ void phase1_sort_test() {
 		print_size<Reg, Item1>();
 		InRegisterTest<Item1, Reg> irt1;
 
-		irt1.phase1_sort_sliding_test<32, 8, min(8, _P1_SWITCH)>();
-		irt1.phase1_sort_sliding_test<32, 16, min(16, _P1_SWITCH)>();
-		irt1.phase1_sort_sliding_test<32, 32, min(32, _P1_SWITCH)>();
-		irt1.phase1_sort_sliding_test<32, 64, min(64, _P1_SWITCH)>();
-		irt1.phase1_sort_sliding_test<32, 128, min(128, _P1_SWITCH)>();
-		irt1.phase1_sort_sliding_test<32, 256, min(256, _P1_SWITCH)>();
-		irt1.phase1_sort_sliding_test<64, 512, min(512, _P1_SWITCH)>();
+		irt1.template phase1_sort_sliding_test<32, 8, (8 < _P1_SWITCH ? 8 : _P1_SWITCH)>();
+		irt1.template phase1_sort_sliding_test<32, 16, (16 < _P1_SWITCH ? 16 : _P1_SWITCH)>();
+		irt1.template phase1_sort_sliding_test<32, 32, (32 < _P1_SWITCH ? 32 : _P1_SWITCH)>();
+		irt1.template phase1_sort_sliding_test<32, 64, (64 < _P1_SWITCH ? 64 : _P1_SWITCH)>();
+		irt1.template phase1_sort_sliding_test<32, 128, (128 < _P1_SWITCH ? 128 : _P1_SWITCH)>();
+		irt1.template phase1_sort_sliding_test<32, 256, (256 < _P1_SWITCH ? 256 : _P1_SWITCH)>();
+		irt1.template phase1_sort_sliding_test<64, 512, (512 < _P1_SWITCH ? 512 : _P1_SWITCH)>();
 #elif KEY_TYPE == 1
 		using Item2 = i64;
 		print_size<Reg, Item2>();
 		InRegisterTest<Item2, Reg> irt2;
-		irt2.phase1_sort_sliding_test<32, 8, min(8, _P1_SWITCH)>();
-		irt2.phase1_sort_sliding_test<32, 16, min(16, _P1_SWITCH)>();
-		irt2.phase1_sort_sliding_test<32, 32, min(32, _P1_SWITCH)>();
-		irt2.phase1_sort_sliding_test<32, 64, min(64, _P1_SWITCH)>();
-		irt2.phase1_sort_sliding_test<32, 128, min(128, _P1_SWITCH)>();
-		irt2.phase1_sort_sliding_test<64, 256, min(256, _P1_SWITCH)>();
+		irt2.phase1_sort_sliding_test<32, 8, (8 < _P1_SWITCH ? 8 : _P1_SWITCH)>();
+		irt2.phase1_sort_sliding_test<32, 16, (16 < _P1_SWITCH ? 16 : _P1_SWITCH)>();
+		irt2.phase1_sort_sliding_test<32, 32, (32 < _P1_SWITCH ? 32 : _P1_SWITCH)>();
+		irt2.phase1_sort_sliding_test<32, 64, (64 < _P1_SWITCH ? 64 : _P1_SWITCH)>();
+		irt2.phase1_sort_sliding_test<32, 128, (128 < _P1_SWITCH ? 128 : _P1_SWITCH)>();
+		irt2.phase1_sort_sliding_test<64, 256, (256 < _P1_SWITCH ? 256 : _P1_SWITCH)>();
 #else 
 		using Item3 = KeyValue<i64, i64>;
 		print_size<Reg, Item3>();
 		InRegisterTest<Item3, Reg> irt3;
-		irt3.phase1_sort_sliding_test<32, 8, min(8, _P1_SWITCH)>();
-		irt3.phase1_sort_sliding_test<32, 16, min(16, _P1_SWITCH)>();
-		irt3.phase1_sort_sliding_test<32, 32, min(32, _P1_SWITCH)>();
-		irt3.phase1_sort_sliding_test<32, 64, min(64, _P1_SWITCH)>();
-		irt3.phase1_sort_sliding_test<64, 128, min(128, _P1_SWITCH)>();
+		irt3.phase1_sort_sliding_test<32, 8, (8 < _P1_SWITCH ? 8 : _P1_SWITCH)>();
+		irt3.phase1_sort_sliding_test<32, 16, (16 < _P1_SWITCH ? 16 : _P1_SWITCH)>();
+		irt3.phase1_sort_sliding_test<32, 32, (32 < _P1_SWITCH ? 32 : _P1_SWITCH)>();
+		irt3.phase1_sort_sliding_test<32, 64, (64 < _P1_SWITCH ? 64 : _P1_SWITCH)>();
+		irt3.phase1_sort_sliding_test<64, 128, (128 < _P1_SWITCH ? 128 : _P1_SWITCH)>();
 #endif
 #endif
 
@@ -1252,37 +1257,37 @@ void phase1_sort_test() {
 		using Item1 = ui;
 		print_size<Reg, Item1>();
 		InRegisterTest<Item1, Reg> irt1;
-		irt1.phase1_sort_sliding_test<32, 16, min(16, _P1_SWITCH)>();
-		irt1.phase1_sort_sliding_test<32, 32, min(32, _P1_SWITCH)>();
-		irt1.phase1_sort_sliding_test<32, 64, min(64, _P1_SWITCH)>();
-		irt1.phase1_sort_sliding_test<32, 128, min(128, _P1_SWITCH)>();
-		irt1.phase1_sort_sliding_test<32, 256, min(256, _P1_SWITCH)>();
-		irt1.phase1_sort_sliding_test<32, 512, min(512, _P1_SWITCH)>();
-		irt1.phase1_sort_sliding_test<64, 1024, min(1024, _P1_SWITCH)>();
+		irt1.phase1_sort_sliding_test<32, 16, (16 < _P1_SWITCH ? 16 : _P1_SWITCH)>();
+		irt1.phase1_sort_sliding_test<32, 32, (32 < _P1_SWITCH ? 32 : _P1_SWITCH)>();
+		irt1.phase1_sort_sliding_test<32, 64, (64 < _P1_SWITCH ? 64 : _P1_SWITCH)>();
+		irt1.phase1_sort_sliding_test<32, 128, (128 < _P1_SWITCH ? 128 : _P1_SWITCH)>();
+		irt1.phase1_sort_sliding_test<32, 256, (256 < _P1_SWITCH ? 256 : _P1_SWITCH)>();
+		irt1.phase1_sort_sliding_test<32, 512, (512 < _P1_SWITCH ? 512 : _P1_SWITCH)>();
+		irt1.phase1_sort_sliding_test<64, 1024, (1024 < _P1_SWITCH ? 1024 : _P1_SWITCH)>();
 		//irt1.phase1_sort_sliding_test<128, 2048, 64>();
 		//irt1.phase1_sort_sliding_test<256, 4096, 64>();
 
 		using Item2 = i64;
 		print_size<Reg, Item2>();
 		InRegisterTest<Item2, Reg> irt2;
-		irt2.phase1_sort_sliding_test<32, 8, min(8, _P1_SWITCH)>();
-		irt2.phase1_sort_sliding_test<32, 16, min(16, _P1_SWITCH)>();
-		irt2.phase1_sort_sliding_test<32, 32, min(32, _P1_SWITCH)>();
-		irt2.phase1_sort_sliding_test<32, 64, min(64, _P1_SWITCH)>();
-		irt2.phase1_sort_sliding_test<32, 128, min(128, _P1_SWITCH)>();
-		irt2.phase1_sort_sliding_test<32, 256, min(256, _P1_SWITCH)>();
-		irt2.phase1_sort_sliding_test<64, 512, min(512, _P1_SWITCH)>();
-		irt2.phase1_sort_sliding_test<128, 1024, min(1024, _P1_SWITCH)>();
+		irt2.phase1_sort_sliding_test<32, 8, (8 < _P1_SWITCH ? 8 : _P1_SWITCH)>();
+		irt2.phase1_sort_sliding_test<32, 16, (16 < _P1_SWITCH ? 16 : _P1_SWITCH)>();
+		irt2.phase1_sort_sliding_test<32, 32, (32 < _P1_SWITCH ? 32 : _P1_SWITCH)>();
+		irt2.phase1_sort_sliding_test<32, 64, (64 < _P1_SWITCH ? 64 : _P1_SWITCH)>();
+		irt2.phase1_sort_sliding_test<32, 128, (128 < _P1_SWITCH ? 128 : _P1_SWITCH)>();
+		irt2.phase1_sort_sliding_test<32, 256, (256 < _P1_SWITCH ? 256 : _P1_SWITCH)>();
+		irt2.phase1_sort_sliding_test<64, 512, (512 < _P1_SWITCH ? 512 : _P1_SWITCH)>();
+		irt2.phase1_sort_sliding_test<128, 1024, (1024 < _P1_SWITCH ? 1024 : _P1_SWITCH)>();
 
 		using Item3 = KeyValue<i64, i64>;
 		print_size<Reg, Item3>();
 		InRegisterTest<Item3, Reg> irt3;
-		irt3.phase1_sort_sliding_test<32, 8, min(8, _P1_SWITCH)>();
-		irt3.phase1_sort_sliding_test<32, 16, min(16, _P1_SWITCH)>();
-		irt3.phase1_sort_sliding_test<32, 32, min(32, _P1_SWITCH)>();
-		irt3.phase1_sort_sliding_test<32, 64, min(64, _P1_SWITCH)>();
-		irt3.phase1_sort_sliding_test<32, 128, min(128, _P1_SWITCH)>();
-		irt3.phase1_sort_sliding_test<64, 256, min(256, _P1_SWITCH)>();
+		irt3.phase1_sort_sliding_test<32, 8, (8 < _P1_SWITCH ? 8 : _P1_SWITCH)>();
+		irt3.phase1_sort_sliding_test<32, 16, (16 < _P1_SWITCH ? 16 : _P1_SWITCH)>();
+		irt3.phase1_sort_sliding_test<32, 32, (32 < _P1_SWITCH ? 32 : _P1_SWITCH)>();
+		irt3.phase1_sort_sliding_test<32, 64, (64 < _P1_SWITCH ? 64 : _P1_SWITCH)>();
+		irt3.phase1_sort_sliding_test<32, 128, (128 < _P1_SWITCH ? 128 : _P1_SWITCH)>();
+		irt3.phase1_sort_sliding_test<64, 256, (256 < _P1_SWITCH ? 256 : _P1_SWITCH)>();
 #endif
 	}
 }
@@ -1297,10 +1302,10 @@ void phase2_in_register_merge_test() {
 	}
 	else {
 		InRegisterTest<Item, Reg> irt;
-		irt.in_register_merge<2, 1>();
-		irt.in_register_merge<2, 2>();
-		irt.in_register_merge<2, 3>();
-		irt.in_register_merge<2, 4>();
+		irt.template in_register_merge<2, 1>();
+		irt.template in_register_merge<2, 2>();
+		irt.template in_register_merge<2, 3>();
+		irt.template in_register_merge<2, 4>();
 	}
 }
 
@@ -1313,7 +1318,7 @@ void sort_sliding_test(ui64 sort_n = 64, ui writer_type = 1) {
 	const ui P2_N = (L2_BYTES >> 1) / Itemsize;
 	ui64 _GB = 1;
 	ui64 size = GB(_GB);
-	size = max(size, sort_n * sizeof(Item));
+        size = MAX(size, sort_n * sizeof(Item));
 	int repeat = 3;
 	if constexpr (IN_CACHE) {
 		size = P2_N * Itemsize;
@@ -1328,10 +1333,10 @@ void sort_sliding_test(ui64 sort_n = 64, ui writer_type = 1) {
 
 	printf("Running sort-kernel test sliding bench --> n: %llu, sort_n: %llu ...\n", n_items, sort_n);
 
-	Item* data = (Item*)VirtualAlloc(NULL, size, MEM_COMMIT, PAGE_READWRITE);
+        Item* data = (Item*)VALLOC(size);
 	//Item* data_back = (Item*)VirtualAlloc(NULL, size, MEM_COMMIT, PAGE_READWRITE);
 	Item* end = data + n_items;
-	Item* output = (Item*)VirtualAlloc(NULL, size, MEM_COMMIT, PAGE_READWRITE);
+        Item* output = (Item*)VALLOC(size);
 
 	datagen::Writer<Item> writer;
 	writer.generate(data, n_items, writer_type);
@@ -1415,11 +1420,11 @@ void sort_sliding_test(ui64 sort_n = 64, ui writer_type = 1) {
 	if (*((char*)data + 13) & 0x123 == *(char*)output) printf("%u %u\n", data[13], output[13]);
 	PRINT_DASH(50);
 
-	VirtualFree(data, 0, MEM_RELEASE);
-	//VirtualFree(data_back, 0, MEM_RELEASE);			// comment out for large sorts
-	VirtualFree(output, 0, MEM_RELEASE);
+	VFREE(data);
+	//VFREE(data_back);			// comment out for large sorts
+	VFREE(output);
 #ifdef STD_CORRECTNESS
-	VirtualFree(sorted, 0, MEM_RELEASE);
+	VFREE(sorted);
 #endif 
 #undef STD_CORRECTNESS
 }
@@ -1601,20 +1606,22 @@ void phase4_sortN_test(int argc, char** argv) {
 	printf("done\n");
 
 	delete[] o;
-	VirtualFree(d, 0, MEM_RELEASE);
-	//VirtualFree(d_back, 0, MEM_RELEASE);
+	VFREE(d);
+	//VFREE(d_back);
 #ifdef STD_CORRECTNESS
-	VirtualFree(d_sorted, 0, MEM_RELEASE);
+	VFREE(d_sorted);
 #endif
-	VirtualFree(tmp, 0, MEM_RELEASE);
-	VirtualFree(kway_buf, 0, MEM_RELEASE);
+	VFREE(tmp);
+	VFREE(kway_buf);
 #undef STD_CORRECTNESS
 }
 
 
 int main(int argc, char** argv) {
 
-	SetThreadAffinityMask(GetCurrentThread(), 1 << 4);
+#ifdef _WIN32
+        SetThreadAffinityMask(GetCurrentThread(), 1 << 4);
+#endif
 
 //#define PHASE1_IN_REG_SORT
 //#define PHASE1_IN_REG_TRANSPOSE
@@ -1678,7 +1685,9 @@ int main(int argc, char** argv) {
 	phase4_sortN_test<Regtype, Itemtype>(argc, argv);
 #endif 
 
+#ifdef _WIN32
 	system("pause");
+#endif
 
 	return 0;
 }

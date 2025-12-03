@@ -45,7 +45,7 @@ namespace origami_merger {
 	template <typename Item, ui nreg>
 	FORCEINLINE void mergebl2_scalar(Item* A, ui64 lenA, Item* B, ui64 lenB, Item* C) {
 		Item* a = A, * b = B, * endA = (A + lenA), * endB = (B + lenB), * c = C;
-		register Item a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15;
+		Item a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15;
 
 		Item SENTINEL = get_max<Item>();
 		Item* SENTINEL_PTR = &SENTINEL;
@@ -419,7 +419,7 @@ namespace origami_merger {
 
 		constexpr ui INC = nreg;
 
-		register Item a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19;
+		Item a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19;
 
 		if constexpr (nreg == 1) {
 			a0 = X0[0]; a1 = Y0[0];

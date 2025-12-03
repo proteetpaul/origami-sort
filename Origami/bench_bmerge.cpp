@@ -167,6 +167,8 @@ int main() {
 	// find UNROLL and NREG -- Table 5 in paper
 	bmerge_test<Regtype, Itemtype>();
 
+#ifdef _WIN32
 	system("pause");
+#endif
 	return 0;
 }

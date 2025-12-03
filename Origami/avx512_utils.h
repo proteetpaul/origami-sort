@@ -19,6 +19,7 @@
 
 #pragma once
 #include "commons.h"
+#include <immintrin.h>
 
 namespace avx512_utils {
 
@@ -92,10 +93,14 @@ namespace avx512_utils {
 			printf("%f ", _mm_extract_ps(a0, 0)); printf("%f ", _mm_extract_ps(a0, 1)); printf("%f ", _mm_extract_ps(a0, 2)); printf("%f\n", _mm_extract_ps(a0, 3));
 		}
 		else if constexpr (std::is_same<Reg, avx2d>::value) {
-			avx2d a0 = _mm512_extractf64x4_pd(a0, 0);
-			printf("%lf ", _mm256_extract_pd(a0, 0)); printf("%lf ", _mm256_extract_pd(a0, 1)); printf("%lf ", _mm256_extract_pd(a0, 2)); printf("%lf ", _mm256_extract_pd(a0, 3));
-			a0 = _mm512_extractf64x4_pd(a0, 1);
-			printf("%lf ", _mm256_extract_pd(a0, 0)); printf("%lf ", _mm256_extract_pd(a0, 1)); printf("%lf ", _mm256_extract_pd(a0, 2)); printf("%lf\n", _mm256_extract_pd(a0, 3));
+			avx2d a0 = _mm512_extractf64x4_pd(r0, 0);
+			// Extract doubles from __m256d by casting to array
+			alignas(32) double arr[4];
+			_mm256_store_pd(arr, a0);
+			printf("%lf ", arr[0]); printf("%lf ", arr[1]); printf("%lf ", arr[2]); printf("%lf ", arr[3]);
+			a0 = _mm512_extractf64x4_pd(r0, 1);
+			_mm256_store_pd(arr, a0);
+			printf("%lf ", arr[0]); printf("%lf ", arr[1]); printf("%lf ", arr[2]); printf("%lf\n", arr[3]);
 		}
 	}
 
