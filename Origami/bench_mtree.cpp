@@ -19,19 +19,20 @@
 
 #include "commons.h"
 #include "utils.h"
-#include "Partition.h"
 #include "writer.h"
-#include "merger.h"
 #include "merge_tree.h"
+
 #include <fstream>
+#include <atomic>
+#include <unistd.h>
 
 template <typename Reg, typename Item, ui NREG, bool in_cache = false, bool std_correctness = true>
 void mtree_single_thread(ui writer_type = 1, ui K = 2, ui l1_buff_n = 32, ui l2_buff_n = 1024, int tid = 0) {
-	SetThreadAffinityMask(GetCurrentThread(), 1 << tid);
+	// SetThreadAffinityMask(GetCurrentThread(), 1 << tid);
 	constexpr ui Itemsize = sizeof(Item);
 	ui64 tot_n = in_cache ? ((L2_BYTES >> 1) / Itemsize) : (MB(128) / Itemsize);		// L2_POW in terms of Item count
 	ui64 size = tot_n * Itemsize;
-							
+
 	Item* A, * C, * interimBuf = nullptr, *A_ref;
 	Item* _X[MTREE_MAX_WAY], * _endX[MTREE_MAX_WAY];
 
@@ -109,45 +110,26 @@ void mtree_single_thread(ui writer_type = 1, ui K = 2, ui l1_buff_n = 32, ui l2_
 }
 
 
-__int64 kway_merges_done = 0;
+std::atomic_uint64_t kway_merges_done = 0;
 
-void StatsThread(HANDLE event_exit, __int64* total_blocks, ui64 block_n) {
+void StatsThread(std::atomic_bool *running, ui64 block_n) {
 	__int64 prev_block_count = 0;
-	ui curr_iter = 0;
-	ui target_iters = 10;		// let it run for 40s
-	uint32_t timeout_ms = 4000;
-	CRITICAL_SECTION cs;
-	InitializeCriticalSection(&cs);
+	
 	printf("Stats thread starting ... \n");
 	hrc::time_point st = hrc::now();	// stat thread start time
 	while (true) {
-		uint32_t ret = WaitForSingleObject(event_exit, timeout_ms); // time-out every 4 secs
-		if (ret == WAIT_OBJECT_0) {
-			// event_exit was set
+		if (!running->load()) {
 			break;
 		}
-		else if (ret == WAIT_TIMEOUT) {
-			EnterCriticalSection(&cs);
-			hrc::time_point en = hrc::now();
-			__int64 total_blocks_loc = *total_blocks;
-			double el = ELAPSED_MS(st, en); st = en;
-			LeaveCriticalSection(&cs);
-			ui64 block_count = total_blocks_loc - prev_block_count;
-			prev_block_count = total_blocks_loc;
-			printf("Blocks: %llu, Speed: %.2f _M/s, %.2f Blocks/s (%.2f ms)\n", block_count, block_count * block_n / el / 1e3, block_count / el * 1e3, el);
-			++curr_iter;
-			if (curr_iter == target_iters) {
-				printf("Exiting ... \n");
-				DeleteCriticalSection(&cs);
-				exit(1);
-			}
-		}
-		else {
-			printf("Returned something else, Error %u\n", ret);
-		}
+		hrc::time_point en = hrc::now();
+		__int64 total_blocks_loc = kway_merges_done.load(std::memory_order_relaxed);
+		double el = ELAPSED_MS(st, en); st = en;
+		ui64 block_count = total_blocks_loc - prev_block_count;
+		prev_block_count = total_blocks_loc;
+		printf("Blocks: %llu, Speed: %.2f _M/s, %.2f Blocks/s (%.2f ms)\n", block_count, block_count * (block_n / el) / 1e3, block_count / el * 1e3, el);
+		sleep(1);
 	}
 	printf("Stats thread exiting ... \n");
-	DeleteCriticalSection(&cs);
 }
 
 template <typename Reg, typename Item, ui NREG>
@@ -160,13 +142,13 @@ void kway_merge_worker(ui64 t_idx, ui n_threads, ui n_cores, origami_merge_tree:
 	}
 	FOR(i, 1e9, 1) {
 		kway_tree->merge(_X, _endX, C, tot_n, l1_buff_n, l2_buff_n, interimBuf, K);
-		InterlockedIncrement64(&kway_merges_done);
+		kway_merges_done.fetch_add(1, std::memory_order_relaxed);
 	}
 }
 
 template <typename Reg, typename Item, ui NREG, bool in_cache = false, bool std_correctness = false>
 void mtree_multi_thread(ui n_threads, ui n_cores, int choice = 0, ui writer_type = 1, ui K = 2, ui l1_buff_n = 32, ui l2_buff_n = 16384, int tid = 0) {
-	SetThreadAffinityMask(GetCurrentThread(), 1 << tid);
+	// SetThreadAffinityMask(GetCurrentThread(), 1 << tid);
 	constexpr ui Itemsize = sizeof(Item);
 	ui64 n_per_thread = in_cache ? ((L2_BYTES>> 1) / Itemsize) : (MB(32) / Itemsize);		
 	Item* A, * C, * interimBuf = nullptr, * A_ref;
@@ -177,16 +159,10 @@ void mtree_multi_thread(ui n_threads, ui n_cores, int choice = 0, ui writer_type
 		_endX[i] = new Item * [MTREE_MAX_WAY];
 	}
 	std::thread** threads = new std::thread * [n_threads];
-	std::thread* stat_thread = nullptr;
-	HANDLE event_exit = NULL;
-	event_exit = CreateEvent(NULL, true, false, NULL);				// manual reset, initial false
-	if (!event_exit) {
-		printf("Exit event creation failed\n");
-		exit(1);
-	}
-	stat_thread = new std::thread(StatsThread, event_exit, &kway_merges_done, n_per_thread);
-
 	
+	std::atomic_bool running = true;
+	std::thread stat_thread(StatsThread, &running, n_per_thread);
+
 	origami_merge_tree::MergeTree<Reg, Item>* kway_tree[MAX_THREADS];
 	constexpr ui interim_buff_size = GB(1);
 	if ((n_per_thread & 15LLU) != 0) n_per_thread -= 16;
@@ -253,10 +229,9 @@ void mtree_multi_thread(ui n_threads, ui n_cores, int choice = 0, ui writer_type
 			threads[j] = new std::thread(kway_merge_worker<Reg, Item, NREG>, j, n_threads, n_cores, kway_tree[j], _X[j], _endX[j], C + j * n_per_thread, n_per_thread, l1_buff_n, l2_buff_n, interimBufs[j], K);
 		FOR(j, n_threads, 1)
 			threads[j]->join();
-		SetEvent(event_exit);
-		stat_thread->join();
-		delete stat_thread;
-		CloseHandle(event_exit);
+
+		running.store(false);
+		stat_thread.join();
 		FOR(j, n_threads, 1)
 			delete threads[j];
 	}
