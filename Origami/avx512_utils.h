@@ -31,6 +31,7 @@ namespace avx512_utils {
 	const int SHUFF_32_CONST = _MM_SHUFFLE(2, 3, 0, 1);						// 32 bit shuffle within 64 bit lane
 	const int SHUFF_64_CONST = _MM_SHUFFLE(1, 0, 3, 2);						// shuffle 64 bits within 128 bit lane
 	const int SHUFF_128_CONST = _MM_SHUFFLE(2, 3, 0, 1);					// shuffle 128 bits within 256 bit lane
+	const int DIAG_64_SHUFFLE_CONST = _MM_SHUFFLE(1, 0, 3, 2);				// shuffle for 64-bit diag_exchange (0x4E)
 
 	// v1 diag_exchange consts --> all PERM consts
 	const avx512 DIAG_128_CONST_v1_0 = _mm512_set_epi64(13, 12, 5, 4, 9, 8, 1, 0);		
@@ -162,7 +163,7 @@ namespace avx512_utils {
 	template <typename Item, typename Reg>
 	FORCEINLINE void reverse(Reg& a0) {
 		if constexpr (std::is_same<Reg, avx512>::value) {
-			if constexpr (sizeof(Item) == 4) a0 = _mm512_permutevar_epi32(_mm512_set_epi32(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15), a0);
+			if constexpr (sizeof(Item) == 4) a0 = _mm512_permutexvar_epi32(_mm512_set_epi32(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15), a0);
 			if constexpr (sizeof(Item) == 8) a0 = _mm512_permutexvar_epi64(_mm512_set_epi64(0, 1, 2, 3, 4, 5, 6, 7), a0);
 			if constexpr (sizeof(Item) == 16) a0 = _mm512_permutexvar_epi64(_mm512_set_epi64(1, 0, 3, 2, 5, 4, 7, 6), a0);
 		}
@@ -212,7 +213,7 @@ namespace avx512_utils {
 			if constexpr (std::is_same<Reg, avx512f>::value) a0 = _mm512_castsi512_ps(_mm512_shuffle_epi32(_mm512_castps_si512(a0), _MM_PERM_BADC));
 		}
 		else if constexpr (bits == 32) {
-			if constexpr (std::is_same<Reg, avx512>::value) a0 = _mm512_shuffle_epi32(a0, SHUFF_32_CONST);
+			if constexpr (std::is_same<Reg, avx512>::value) a0 = _mm512_shuffle_epi32(a0, (_MM_PERM_ENUM) SHUFF_32_CONST);
 			if constexpr (std::is_same<Reg, avx512f>::value) a0 = _mm512_castsi512_ps(_mm512_shuffle_epi32(_mm512_castps_si512(a0), SHUFF_32_CONST));
 		}
 		else printf("> Works only for 32, 64, 128 and 256 bits\n");
@@ -316,8 +317,8 @@ namespace avx512_utils {
 			cast_reg<avx512, Reg>(_a0, a0);
 			cast_reg<avx512, Reg>(_a1, a1);
 
-			avx512 __a0 = _mm512_shuffle_epi32(_a0, ROL_CONST);
-			avx512 __a1 = _mm512_shuffle_epi32(_a1, ROR_CONST);
+			avx512 __a0 = _mm512_shuffle_epi32(_a0, (_MM_PERM_ENUM) ROL_CONST);
+			avx512 __a1 = _mm512_shuffle_epi32(_a1, (_MM_PERM_ENUM) ROR_CONST);
 			_a0 = _mm512_mask_blend_epi32(DIAG_32_BLEND_CONST, _a0, __a1);
 			_a1 = _mm512_mask_blend_epi32(DIAG_32_BLEND_CONST, __a0, _a1);
 
@@ -336,7 +337,7 @@ namespace avx512_utils {
 			_a0 = __a0;
 #else 
 			// v1
-			avx512f vTmp = _mm512_shuffle_ps(_a0, _a1, 0x4E4E);
+			avx512f vTmp = _mm512_shuffle_ps(_a0, _a1, DIAG_64_SHUFFLE_CONST);
 			_a0 = _mm512_mask_blend_ps(DIAG_64_BLEND_CONST, _a0, vTmp);
 			_a1 = _mm512_mask_blend_ps(DIAG_64_BLEND_CONST, vTmp, _a1);
 #endif
