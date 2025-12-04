@@ -1235,12 +1235,12 @@ void phase1_sort_test() {
 		using Item2 = i64;
 		print_size<Reg, Item2>();
 		InRegisterTest<Item2, Reg> irt2;
-		irt2.phase1_sort_sliding_test<32, 8, (8 < _P1_SWITCH ? 8 : _P1_SWITCH)>();
-		irt2.phase1_sort_sliding_test<32, 16, (16 < _P1_SWITCH ? 16 : _P1_SWITCH)>();
-		irt2.phase1_sort_sliding_test<32, 32, (32 < _P1_SWITCH ? 32 : _P1_SWITCH)>();
-		irt2.phase1_sort_sliding_test<32, 64, (64 < _P1_SWITCH ? 64 : _P1_SWITCH)>();
-		irt2.phase1_sort_sliding_test<32, 128, (128 < _P1_SWITCH ? 128 : _P1_SWITCH)>();
-		irt2.phase1_sort_sliding_test<64, 256, (256 < _P1_SWITCH ? 256 : _P1_SWITCH)>();
+		irt2.template phase1_sort_sliding_test<32, 8, (8 < _P1_SWITCH ? 8 : _P1_SWITCH)>();
+		irt2.template phase1_sort_sliding_test<32, 16, (16 < _P1_SWITCH ? 16 : _P1_SWITCH)>();
+		irt2.template phase1_sort_sliding_test<32, 32, (32 < _P1_SWITCH ? 32 : _P1_SWITCH)>();
+		irt2.template phase1_sort_sliding_test<32, 64, (64 < _P1_SWITCH ? 64 : _P1_SWITCH)>();
+		irt2.template phase1_sort_sliding_test<32, 128, (128 < _P1_SWITCH ? 128 : _P1_SWITCH)>();
+		irt2.template phase1_sort_sliding_test<64, 256, (256 < _P1_SWITCH ? 256 : _P1_SWITCH)>();
 #else 
 		using Item3 = KeyValue<i64, i64>;
 		print_size<Reg, Item3>();
@@ -1257,37 +1257,37 @@ void phase1_sort_test() {
 		using Item1 = ui;
 		print_size<Reg, Item1>();
 		InRegisterTest<Item1, Reg> irt1;
-		irt1.phase1_sort_sliding_test<32, 16, (16 < _P1_SWITCH ? 16 : _P1_SWITCH)>();
-		irt1.phase1_sort_sliding_test<32, 32, (32 < _P1_SWITCH ? 32 : _P1_SWITCH)>();
-		irt1.phase1_sort_sliding_test<32, 64, (64 < _P1_SWITCH ? 64 : _P1_SWITCH)>();
-		irt1.phase1_sort_sliding_test<32, 128, (128 < _P1_SWITCH ? 128 : _P1_SWITCH)>();
-		irt1.phase1_sort_sliding_test<32, 256, (256 < _P1_SWITCH ? 256 : _P1_SWITCH)>();
-		irt1.phase1_sort_sliding_test<32, 512, (512 < _P1_SWITCH ? 512 : _P1_SWITCH)>();
-		irt1.phase1_sort_sliding_test<64, 1024, (1024 < _P1_SWITCH ? 1024 : _P1_SWITCH)>();
+		irt1.template phase1_sort_sliding_test<32, 16, (16 < _P1_SWITCH ? 16 : _P1_SWITCH)>();
+		irt1.template phase1_sort_sliding_test<32, 32, (32 < _P1_SWITCH ? 32 : _P1_SWITCH)>();
+		irt1.template phase1_sort_sliding_test<32, 64, (64 < _P1_SWITCH ? 64 : _P1_SWITCH)>();
+		irt1.template phase1_sort_sliding_test<32, 128, (128 < _P1_SWITCH ? 128 : _P1_SWITCH)>();
+		irt1.template phase1_sort_sliding_test<32, 256, (256 < _P1_SWITCH ? 256 : _P1_SWITCH)>();
+		irt1.template phase1_sort_sliding_test<32, 512, (512 < _P1_SWITCH ? 512 : _P1_SWITCH)>();
+		irt1.template phase1_sort_sliding_test<64, 1024, (1024 < _P1_SWITCH ? 1024 : _P1_SWITCH)>();
 		//irt1.phase1_sort_sliding_test<128, 2048, 64>();
 		//irt1.phase1_sort_sliding_test<256, 4096, 64>();
 
 		using Item2 = i64;
 		print_size<Reg, Item2>();
 		InRegisterTest<Item2, Reg> irt2;
-		irt2.phase1_sort_sliding_test<32, 8, (8 < _P1_SWITCH ? 8 : _P1_SWITCH)>();
-		irt2.phase1_sort_sliding_test<32, 16, (16 < _P1_SWITCH ? 16 : _P1_SWITCH)>();
-		irt2.phase1_sort_sliding_test<32, 32, (32 < _P1_SWITCH ? 32 : _P1_SWITCH)>();
-		irt2.phase1_sort_sliding_test<32, 64, (64 < _P1_SWITCH ? 64 : _P1_SWITCH)>();
-		irt2.phase1_sort_sliding_test<32, 128, (128 < _P1_SWITCH ? 128 : _P1_SWITCH)>();
-		irt2.phase1_sort_sliding_test<32, 256, (256 < _P1_SWITCH ? 256 : _P1_SWITCH)>();
-		irt2.phase1_sort_sliding_test<64, 512, (512 < _P1_SWITCH ? 512 : _P1_SWITCH)>();
-		irt2.phase1_sort_sliding_test<128, 1024, (1024 < _P1_SWITCH ? 1024 : _P1_SWITCH)>();
+		irt2.template phase1_sort_sliding_test<32, 8, (8 < _P1_SWITCH ? 8 : _P1_SWITCH)>();
+		irt2.template phase1_sort_sliding_test<32, 16, (16 < _P1_SWITCH ? 16 : _P1_SWITCH)>();
+		irt2.template phase1_sort_sliding_test<32, 32, (32 < _P1_SWITCH ? 32 : _P1_SWITCH)>();
+		irt2.template phase1_sort_sliding_test<32, 64, (64 < _P1_SWITCH ? 64 : _P1_SWITCH)>();
+		irt2.template phase1_sort_sliding_test<32, 128, (128 < _P1_SWITCH ? 128 : _P1_SWITCH)>();
+		irt2.template phase1_sort_sliding_test<32, 256, (256 < _P1_SWITCH ? 256 : _P1_SWITCH)>();
+		irt2.template phase1_sort_sliding_test<64, 512, (512 < _P1_SWITCH ? 512 : _P1_SWITCH)>();
+		irt2.template phase1_sort_sliding_test<128, 1024, (1024 < _P1_SWITCH ? 1024 : _P1_SWITCH)>();
 
 		using Item3 = KeyValue<i64, i64>;
 		print_size<Reg, Item3>();
 		InRegisterTest<Item3, Reg> irt3;
-		irt3.phase1_sort_sliding_test<32, 8, (8 < _P1_SWITCH ? 8 : _P1_SWITCH)>();
-		irt3.phase1_sort_sliding_test<32, 16, (16 < _P1_SWITCH ? 16 : _P1_SWITCH)>();
-		irt3.phase1_sort_sliding_test<32, 32, (32 < _P1_SWITCH ? 32 : _P1_SWITCH)>();
-		irt3.phase1_sort_sliding_test<32, 64, (64 < _P1_SWITCH ? 64 : _P1_SWITCH)>();
-		irt3.phase1_sort_sliding_test<32, 128, (128 < _P1_SWITCH ? 128 : _P1_SWITCH)>();
-		irt3.phase1_sort_sliding_test<64, 256, (256 < _P1_SWITCH ? 256 : _P1_SWITCH)>();
+		irt3.template phase1_sort_sliding_test<32, 8, (8 < _P1_SWITCH ? 8 : _P1_SWITCH)>();
+		irt3.template phase1_sort_sliding_test<32, 16, (16 < _P1_SWITCH ? 16 : _P1_SWITCH)>();
+		irt3.template phase1_sort_sliding_test<32, 32, (32 < _P1_SWITCH ? 32 : _P1_SWITCH)>();
+		irt3.template phase1_sort_sliding_test<32, 64, (64 < _P1_SWITCH ? 64 : _P1_SWITCH)>();
+		irt3.template phase1_sort_sliding_test<32, 128, (128 < _P1_SWITCH ? 128 : _P1_SWITCH)>();
+		irt3.template phase1_sort_sliding_test<64, 256, (256 < _P1_SWITCH ? 256 : _P1_SWITCH)>();
 #endif
 	}
 }
@@ -1630,10 +1630,10 @@ int main(int argc, char** argv) {
 
 //#define PHASE2_IN_REG_MERGE
 //#define PHASE2_SWITCH_POINT
-#define PHASE2_SORT
+// #define PHASE2_SORT
 
 //#define PHASE3_SORT
-//#define PHASE4_SORT
+#define PHASE4_SORT
 
 #ifdef PHASE1_IN_REG_SORT
 	phase1_in_register_sort_test<Regtype, Itemtype>();

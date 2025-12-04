@@ -99,8 +99,8 @@ void bmerge(ui writer_type = 1) {
 
 	hrc::time_point en = hrc::now();
 	double el = ELAPSED_MS(st, en);
-	double sp = n * repeat / el / 1e3;
-	printf("done, elapsed: %.2f ms, Speed: %.2f M/s\n", el, sp);		
+	double sp = init_sz * repeat / el / 1e3;
+	printf("done, elapsed: %.2f ms, Speed: %.2f MB/s\n", el, sp);		
 
 	printf("Checking correcntess ... ");
 #ifdef STD_CORRECTNESS
@@ -165,7 +165,7 @@ int main() {
 	SetThreadAffinityMask(GetCurrentThread(), 1 << 4);
 	
 	// find UNROLL and NREG -- Table 5 in paper
-	bmerge_test<Regtype, Itemtype>();
+	bmerge_test<Regtype, Itemtype, true>();
 
 #ifdef _WIN32
 	system("pause");

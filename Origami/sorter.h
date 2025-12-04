@@ -25,6 +25,7 @@
 #include "merger.h"
 #include "Partition.h"
 #include <fstream>
+#include <mutex>
 
 
 namespace origami_sorter {
@@ -3916,7 +3917,7 @@ namespace origami_sorter {
 
 	// ------------
 	// MULTI-THREAD
-#define PHASE_3
+// #define PHASE_3
 #define PHASE_4
 #define PHASE3_ITERS_MAX 12
 
@@ -3949,14 +3950,19 @@ namespace origami_sorter {
 	
 	template <typename Item>
 	std::queue<kway_merge_job<Item>*> jobQueue;
-	CRITICAL_SECTION cs, cs2;
-	SYNCHRONIZATION_BARRIER barrier;
+#ifdef PHASE_3
+	CRITICAL_SECTION cs;
+#endif
+	std::mutex mtx2;
+	pthread_barrier_t barrier;
 
+#ifdef PHASE_3
 	ui phase3_iters;
 	ui phase3_ways_pow[PHASE3_ITERS_MAX];
 	ui phase3_n_jobs[PHASE3_ITERS_MAX];			// how many jobs in each iteration of phase 3
 	std::queue<ui> phase3_Q[PHASE3_ITERS_MAX];
 	__int64 phase3_curr_job_id[PHASE3_ITERS_MAX];
+#endif
 
 	template <typename Item, typename Reg, ui P1_NREG = _P1_NREG, ui P1_N = _P1_N, ui P1_SWITCH = _P1_SWITCH, ui P2_N = _P2_N, ui P2_MERGE_UNROLL = _P2_MERGE_UNROLL, ui P2_MERGE_NREG_1x = _P2_MERGE_NREG_1x, ui P2_MERGE_NREG_2x = _P2_MERGE_NREG_2x, ui P2_MERGE_NREG_3x = _P2_MERGE_NREG_3x, ui MT_L1_BUFF_N = _MT_L1_BUFF_N, ui MT_L2_BUFF_N = _MT_L2_BUFF_N>
 	void sort_multi_thread_worker(ui t_idx, ui64 Y, Item* d, Item* out, ui64 n_per_thread, ui n_threads, ui n_cores, ui n_partitions, Item* interim_buf) {
@@ -3975,7 +3981,9 @@ namespace origami_sorter {
 		ui64 Y_loc = Y;
 		__int64 phase1_2_jobs_tot_loc = phase1_2_jobs_tot;
 
+	#ifdef PHASE_3
 		std::queue<ui>* phase3_Q0_loc = &phase3_Q[0];
+	#endif
 		Item* src, * dst;
 
 		// do phase 1+2
@@ -4085,14 +4093,19 @@ namespace origami_sorter {
 		// Phase 4
 #ifdef PHASE_4
 		// need synchronization at this point
-		EnterSynchronizationBarrier(&barrier, SYNCHRONIZATION_BARRIER_FLAGS_BLOCK_ONLY);
-		//printf("Thread %3lu beginning phase 4\n", t_idx);
+		pthread_barrier_wait(&barrier);
+		printf("Thread %3lu beginning phase 4\n", t_idx);
 		ui n_partitions_per_thread = n_partitions / n_threads;			
 		const ui partition_idx_base = t_idx * n_partitions_per_thread;
 
 		const ui64 n_per_partition = n_per_thread * n_threads / n_partitions;
 		const ui n_per_stream_per_partition = n_per_partition / M_loc;
 		const ui n_per_thread_per_stream = n_per_thread / M_loc;
+		printf("n_per_partition: %ld\n", n_per_partition);
+		printf("M_loc: %d\n", M_loc);
+		printf("n_partitions: %d\n", n_partitions);
+		printf("n_per_stream_per_partition: %d\n", n_per_stream_per_partition);
+		printf("n_per_thread_per_stream: %d\n", n_per_thread_per_stream);
 
 		Item*** p_local = (Item***)p;
 		Item*** p_tmp_local = (Item***)p_tmp;
@@ -4114,9 +4127,9 @@ namespace origami_sorter {
 			memcpy(p_tmp_local[t_idx], S, sizeof(Item*) * M_loc);
 		}
 		// wait for all threads to finish
-		EnterSynchronizationBarrier(&barrier, SYNCHRONIZATION_BARRIER_FLAGS_BLOCK_ONLY);
+		pthread_barrier_wait(&barrier);
 
-		//printf("Thread %3lu Phase 4.1 done\n", t_idx);
+		printf("Thread %3lu Phase 4.1 done\n", t_idx);
 
 		// 4.2 Phase 4.2 -> parallel partitioning
 		memcpy(p_local[partition_idx_base], p_tmp_local[t_idx], M_loc * sizeof(Item*));
@@ -4132,16 +4145,15 @@ namespace origami_sorter {
 			partition_templated::Partition_Ptrs(L, R, S, M_loc);
 			memcpy(p_local[partition_idx], S, sizeof(Item*) * M_loc);
 		}
-		//printf("Thread %3lu Phase 4.2 done\n", t_idx);
+		printf("Thread %3lu Phase 4.2 done\n", t_idx);
 
 		// 4.3 Phase 4.3 -> push jobs in Q
 		FOR_INIT(i, (partition_idx_base + 1), (partition_idx_base + n_partitions_per_thread + 1), 1) {
 			kway_merge_job<Item>* job = new kway_merge_job<Item>(p_local[i - 1], p_local[i], pout_local[i - 1], n_per_partition);
-			EnterCriticalSection(&cs2);
+			std::lock_guard<std::mutex> lock {mtx2};
 			jobQueue<Item>.push(job);
-			LeaveCriticalSection(&cs2);
 		}
-		//printf("Thread %3lu Phase 4.3 done, Job Q size: %lu\n", t_idx, jobQueue<Item>.size());
+		printf("Thread %3lu Phase 4.3 done, Job Q size: %lu\n", t_idx, jobQueue<Item>.size());
 
 		// 4.4 Phase 4.4 -> pop and work on jobs
 		origami_merge_tree::MergeTree<Reg, Item>* tree = nullptr;
@@ -4151,12 +4163,12 @@ namespace origami_sorter {
 		tree->merge_init(M_loc, interim_buf, l1_buff_n, l2_buff_n);
 		kway_merge_job<Item>* job = nullptr;
 		while (1) {
-			EnterCriticalSection(&cs2);
+			std::unique_lock<std::mutex> lock {mtx2};
 			if (jobQueue<Item>.size() > 0) {
 				job = jobQueue<Item>.front(); jobQueue<Item>.pop();
 				//print_job(job, M_loc);
 				Item* _p = job->out; ui64 _n = job->tot;
-				LeaveCriticalSection(&cs2);
+				lock.release();
 				tree->merge(job->X, job->endX, job->out, job->tot, l1_buff_n, l2_buff_n, interim_buf, M_loc);
 				// DEBUG **********
 				//printf("Sort checker by th: %3lu @ [%llX %llX]\n", t_idx, _p, _p + _n); 
@@ -4180,11 +4192,11 @@ namespace origami_sorter {
 				//LeaveCriticalSection(&cs2);
 			}
 			else {
-				LeaveCriticalSection(&cs2);
+				lock.release();
 				break;
 			}
 		}
-		//printf("Thread %3lu, Phase 4.4 done\n", t_idx);
+		printf("Thread %3lu, Phase 4.4 done\n", t_idx);
 
 		tree->merge_cleanup();
 		delete tree;
@@ -4224,7 +4236,10 @@ namespace origami_sorter {
 #endif
 		// Phase 4 stuff
 		const ui n_per_thread = n_items / n_threads;
-		const ui tot_iters_before_phase4 = (Y_pow - phase1_pow) + phase3_iters;
+		ui tot_iters_before_phase4 = (Y_pow - phase1_pow);
+	#ifdef PHASE_3
+		tot_iters_before_phase4 += phase3_iters;
+	#endif
 		Item* sorted = (tot_iters_before_phase4 & 1) ? out : d;
 #ifdef PHASE_4
 		sorted = (tot_iters_before_phase4 & 1) ? d : out;
@@ -4241,9 +4256,7 @@ namespace origami_sorter {
 		// for every pair of sorted lists
 		const ui n_per_stream_last = n_items / _M;
 #endif
-		InitializeCriticalSection(&cs);
-		InitializeCriticalSection(&cs2);
-		InitializeSynchronizationBarrier(&barrier, n_threads, -1);
+		pthread_barrier_init(&barrier, NULL, n_threads);
 
 		
 #ifdef PHASE_4
@@ -4258,21 +4271,19 @@ namespace origami_sorter {
 		pout[0] = (tot_iters_before_phase4 & 1) ? d : out;
 		FOR_INIT(i, 1, n_partitions + 1, 1) pout[i] = (Item*)(pout[0]) + i * n_per_partition;
 #endif
-		//hrc::time_point st = hrc::now();
+		hrc::time_point st = hrc::now();
 		FOR(t, n_cores, 1) threads[t] = new std::thread(sort_multi_thread_worker<Item, Reg>, t, Y, d, out, n_per_thread, n_threads, n_cores, n_partitions, (Item*)((char*)kway_buf + t * MB(8)));
 		if (n_threads > n_cores) {
 			WaitForSingleObject(phase1_2_event, INFINITE);
 			FOR_INIT(t, n_cores, n_threads, 1) threads[t] = new std::thread(sort_multi_thread_worker<Item, Reg>, t, Y, d, out, n_per_thread, n_threads, n_cores, n_partitions, (Item*)((char*)kway_buf + t * MB(8)));
 		}
 		FOR(t, n_threads, 1) threads[t]->join();
-		//hrc::time_point en = hrc::now();
-		//double el = ELAPSED_MS(st, en);
-		//printf("Elapsed: %.2f ms, Speed: %.2f _M/s\n", el, n_items / el / 1e3);
+		hrc::time_point en = hrc::now();
+		double el = ELAPSED_MS(st, en);
+		printf("Elapsed: %.2f ms, Speed: %.2f MB/s\n", el, n_items * sizeof(Item) / el / 1e3);
 
 		// cleanup
-		DeleteCriticalSection(&cs);
-		DeleteCriticalSection(&cs2);
-		DeleteSynchronizationBarrier(&barrier);
+		pthread_barrier_destroy(&barrier);
 		CloseHandle(phase1_2_event);
 		FOR(t, n_threads, 1) delete threads[t];
 		delete[] threads;

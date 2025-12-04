@@ -114,9 +114,12 @@ std::atomic_uint64_t kway_merges_done = 0;
 
 void StatsThread(std::atomic_bool *running, ui64 block_n) {
 	__int64 prev_block_count = 0;
+	float moving_avg = 0;
+	uint64_t count = 0;
 	
 	printf("Stats thread starting ... \n");
 	hrc::time_point st = hrc::now();	// stat thread start time
+	bool first_iter = true;
 	while (true) {
 		if (!running->load()) {
 			break;
@@ -126,7 +129,13 @@ void StatsThread(std::atomic_bool *running, ui64 block_n) {
 		double el = ELAPSED_MS(st, en); st = en;
 		ui64 block_count = total_blocks_loc - prev_block_count;
 		prev_block_count = total_blocks_loc;
-		printf("Blocks: %llu, Speed: %.2f _M/s, %.2f Blocks/s (%.2f ms)\n", block_count, block_count * (block_n / el) / 1e3, block_count / el * 1e3, el);
+		float speed = block_count * (block_n / el) / 1e3;
+		if (!first_iter) {
+			moving_avg = (moving_avg * count + speed/1024) / (count + 1);
+			count++;
+		}
+		first_iter = false;
+		printf("Blocks: %llu, Speed: %.2f MB/s, %.2f Blocks/s (%.2f ms), Moving avg: %.2f GB/s\n", block_count, speed, block_count / el * 1e3, el, moving_avg);
 		sleep(1);
 	}
 	printf("Stats thread exiting ... \n");
@@ -140,17 +149,16 @@ void kway_merge_worker(ui64 t_idx, ui n_threads, ui n_cores, origami_merge_tree:
 		else coreid = ((coreid % n_cores) << 1) + 1;
 		SetThreadAffinityMask(GetCurrentThread(), 1 << coreid);
 	}
-	FOR(i, 1e9, 1) {
+	FOR(i, 10, 1) {
 		kway_tree->merge(_X, _endX, C, tot_n, l1_buff_n, l2_buff_n, interimBuf, K);
 		kway_merges_done.fetch_add(1, std::memory_order_relaxed);
 	}
 }
 
 template <typename Reg, typename Item, ui NREG, bool in_cache = false, bool std_correctness = false>
-void mtree_multi_thread(ui n_threads, ui n_cores, int choice = 0, ui writer_type = 1, ui K = 2, ui l1_buff_n = 32, ui l2_buff_n = 16384, int tid = 0) {
-	// SetThreadAffinityMask(GetCurrentThread(), 1 << tid);
+void mtree_multi_thread(ui n_threads, ui n_cores, int choice = 0, ui writer_type = 1, ui K = 2, ui l1_buff_n = 32, ui l2_buff_n = 16384) {
 	constexpr ui Itemsize = sizeof(Item);
-	ui64 n_per_thread = in_cache ? ((L2_BYTES>> 1) / Itemsize) : (MB(32) / Itemsize);		
+	ui64 n_per_thread = in_cache ? ((L2_BYTES>> 1) / Itemsize) : (MB(256) / Itemsize);		
 	Item* A, * C, * interimBuf = nullptr, * A_ref;
 	Item** _X[MAX_THREADS], ** _endX[MAX_THREADS];
 	Item* interimBufs[MAX_THREADS];
@@ -161,7 +169,6 @@ void mtree_multi_thread(ui n_threads, ui n_cores, int choice = 0, ui writer_type
 	std::thread** threads = new std::thread * [n_threads];
 	
 	std::atomic_bool running = true;
-	std::thread stat_thread(StatsThread, &running, n_per_thread);
 
 	origami_merge_tree::MergeTree<Reg, Item>* kway_tree[MAX_THREADS];
 	constexpr ui interim_buff_size = GB(1);
@@ -219,8 +226,8 @@ void mtree_multi_thread(ui n_threads, ui n_cores, int choice = 0, ui writer_type
 	// print setup details
 	printf("# Keys tot: %llu, per_thread: %llu, Chunk: %llu, Threads: %d, Way: %u, L1 buff: %u, L2 buff: %u \n", tot_n, n_per_thread, chunk, n_threads, K, l1_buff_n, l2_buff_n);
 	
-
 	ui64 repeat = 1;
+	std::thread stat_thread(StatsThread, &running, n_per_thread * Itemsize);
 
 	// test ground
 	hrc::time_point st = hrc::now();
@@ -291,7 +298,7 @@ void mtree_multi_thread_test(int argc, char** argv) {
 	ui K = 4, l1_buff_n_pow = 12, l2_buff_n_pow = 12;
 	if (argc >= 6)
 		K = atoi(argv[1]), l1_buff_n_pow = atoi(argv[2]), l2_buff_n_pow = atoi(argv[3]), n_threads = atoi(argv[4]), n_cores = atoi(argv[5]);
-	mtree_multi_thread<Regtype, Itemtype, NREG, true>(n_threads, n_cores, 3, writer_type, K, (1LU << l1_buff_n_pow), (1LU << l2_buff_n_pow));
+	mtree_multi_thread<Regtype, Itemtype, NREG, false, true>(n_threads, n_cores, 3, writer_type, K, (1LU << l1_buff_n_pow), (1LU << l2_buff_n_pow));
 }
 
 int main(int argc, char** argv)
