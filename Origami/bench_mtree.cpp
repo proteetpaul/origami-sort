@@ -180,17 +180,13 @@ void mtree_multi_thread(ui n_threads, ui n_cores, int choice = 0, ui writer_type
 
 	ui64 chunk = n_per_thread / K; chunk = (chunk / keys_per_stream) * keys_per_stream; n_per_thread = chunk * K;
 	const ui K_pow = (ui)(log2(K));
-	interimBuf = (Item*)(VALLOC(interim_buff_size));
-	memset(interimBuf, 0, interim_buff_size);
-	ui64 interim_buf_n = GB(1) / sizeof(Item);
-	ui64 n_per_thread_interim_buff = l1_buff_n / n_threads;
-	Item* ptr = interimBuf;
 	FOR(i, n_threads, 1) {
 		if (K_pow & 1) kway_tree[i] = new origami_merge_tree::MergeTreeOdd<Reg, Item>(); 
-		else kway_tree[i] = new origami_merge_tree::MergeTreeEven<Reg, Item>(); 
-		kway_tree[i]->merge_init(K, ptr, l1_buff_n, l2_buff_n);
-		interimBufs[i] = ptr;
-		ptr += n_per_thread_interim_buff + 64 / sizeof(Item);		
+		else kway_tree[i] = new origami_merge_tree::MergeTreeEven<Reg, Item>();
+		// Allocating less memory per thread seems to cause a fault
+		Item *per_thread_interim_buf = (Item*)VALLOC(l1_buff_n * sizeof(Item) * 4);
+		// TODO(): Why does merge_init rely on page boundary alignment
+		kway_tree[i]->merge_init(K, per_thread_interim_buf, l1_buff_n, l2_buff_n);
 	}
 	ui64 tot_n = n_per_thread * n_threads;
 	ui64 size = tot_n * Itemsize;
@@ -201,7 +197,7 @@ void mtree_multi_thread(ui n_threads, ui n_cores, int choice = 0, ui writer_type
 	memset(A, 0, size);
 	memset(C, 0, size + 4096);
 
-	ptr = A;
+	Item* ptr = A;
 	FOR(i, n_threads, 1) {
 		FOR(j, K, 1) {
 			_X[i][j] = ptr + j * chunk;
@@ -219,7 +215,7 @@ void mtree_multi_thread(ui n_threads, ui n_cores, int choice = 0, ui writer_type
 		A_ref = (Item*)VALLOC(size);
 		memcpy(A_ref, A, size);
 		if (choice == 3) std::sort(A_ref, A_ref + tot_n);		
-		else sort_every<Item>(A_ref, tot_n, chunk << 1);
+		else sort_every<Item>(A_ref, tot_n, chunk * K);
 		printf("done\n");
 	}
 
@@ -260,7 +256,6 @@ void mtree_multi_thread(ui n_threads, ui n_cores, int choice = 0, ui writer_type
 	// cleanup
 	VFREE(A);
 	VFREE(C);
-	VFREE(interimBuf);
 	FOR(i, n_threads, 1) {
 		kway_tree[i]->merge_cleanup();
 		delete kway_tree[i];
@@ -298,7 +293,7 @@ void mtree_multi_thread_test(int argc, char** argv) {
 	ui K = 4, l1_buff_n_pow = 12, l2_buff_n_pow = 12;
 	if (argc >= 6)
 		K = atoi(argv[1]), l1_buff_n_pow = atoi(argv[2]), l2_buff_n_pow = atoi(argv[3]), n_threads = atoi(argv[4]), n_cores = atoi(argv[5]);
-	mtree_multi_thread<Regtype, Itemtype, NREG, false, true>(n_threads, n_cores, 3, writer_type, K, (1LU << l1_buff_n_pow), (1LU << l2_buff_n_pow));
+	mtree_multi_thread<Regtype, Itemtype, NREG, true, true>(n_threads, n_cores, choice, writer_type, K, (1LU << l1_buff_n_pow), (1LU << l2_buff_n_pow));
 }
 
 int main(int argc, char** argv)

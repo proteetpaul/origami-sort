@@ -27,6 +27,10 @@
 template<typename Reg, typename Item>
 void sort_bench(ui writer_type, int argc, char** argv) {
 //#define STD_CORRECTNESS
+	if (argc < 3) {
+		printf("sort_bench takes the following arguments: dataset size (2^input) and num threads");
+		exit(1);
+	}
 	ui size_pow = atoi(argv[1]);
 	ui n_threads = atoi(argv[2]);
 	ui n_cores, min_k = 2;
@@ -147,9 +151,6 @@ int main(int argc, char** argv) {
 
 	// single thread sort test
 	sort_bench<Regtype, Itemtype>(MT, argc, argv);
-#ifdef _WIN32
-	system("pause");
-#endif
 
 	return 0;
 }

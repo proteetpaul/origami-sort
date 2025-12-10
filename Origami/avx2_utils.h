@@ -242,12 +242,12 @@ namespace avx2_utils {
 		}
 		else if constexpr (bits == 64) {
 			if constexpr (std::is_same<Reg, avx2>::value) a0 = _mm256_shuffle_epi32(a0, SHUFF_64_CONST);
-			if constexpr (std::is_same<Reg, avx2d>::value) a0 = _mm256_castsi256_pd(_mm512_shuffle_epi32(_mm256_castpd_si256(a0), SHUFF_64_CONST));
-			if constexpr (std::is_same<Reg, avx2f>::value) a0 = _mm256_castsi256_ps(_mm512_shuffle_epi32(_mm256_castps_si256(a0), SHUFF_64_CONST));
+			if constexpr (std::is_same<Reg, avx2d>::value) a0 = _mm256_castsi256_pd(_mm256_shuffle_epi32(_mm256_castpd_si256(a0), SHUFF_64_CONST));
+			if constexpr (std::is_same<Reg, avx2f>::value) a0 = _mm256_castsi256_ps(_mm256_shuffle_epi32(_mm256_castps_si256(a0), SHUFF_64_CONST));
 		}
 		else if constexpr (bits == 32) {
 			if constexpr (std::is_same<Reg, avx2>::value) a0 = _mm256_shuffle_epi32(a0, SHUFF_32_CONST);;
-			if constexpr (std::is_same<Reg, avx2f>::value) a0 = _mm256_castsi256_ps(_mm512_shuffle_epi32(_mm256_castps_si256(a0), SHUFF_32_CONST));
+			if constexpr (std::is_same<Reg, avx2f>::value) a0 = _mm256_castsi256_ps(_mm256_shuffle_epi32(_mm256_castps_si256(a0), SHUFF_32_CONST));
 		}
 		else {
 			ReportError("Works only for 32, 64 and 128 bits");
